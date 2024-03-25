@@ -27,11 +27,20 @@ def main():
     st.title('Movie Recommendation System')
     # Sidebar for filters
     st.sidebar.title('Filters')
+    df=pd.read_csv('new.csv')
+    if 'duration' in list(df.columns):
+        ctr=1
+        st.write('**Movies**')
+    else:
+        ctr=0
+        st.write('**Web series**')
+    display(df.iloc[:6,:])
 
     selected_type = st.sidebar.selectbox('Select Media Type', ['Movies', 'Web Series'], index=0)
     if selected_type =='Web Series':
         ctr=0
-
+    else:
+        ctr=1
 
     selected_genres = st.sidebar.multiselect('Select Genre', genres)
     
@@ -39,15 +48,10 @@ def main():
     min_date = [st.sidebar.date_input('Minimum Release Date')]
     max_date = [st.sidebar.date_input('Maximum Release Date')]
     search_button = st.sidebar.button('Search')
-    df=pd.read_csv('new.csv')
-    if 'duration' in list(df.columns):
-        ctr=1
-    else:
-        ctr=0
-    display(df.iloc[:6,:])
+    
 
     if search_button:
-        st.write('Scraping data from IMDb...')
+        st.write('Latest Scraped data from IMDb below...')
         new_data = scrape(selected_type,selected_genres,min_date,max_date)
         st.write('Scraping complete!')
         st.write(new_data)
@@ -64,7 +68,9 @@ def scrape(selected_type,selected_genres,min_date,max_date):
         ctr=0
     else:
         url=base_url
-        main_class='sc-d80c3c78-4 kXzHjH dli-parent'
+        main_class='sc-ab6fa25a-3 bVYfLY dli-parent'
+        # main_class='sc-d80c3c78-4 kXzHjH dli-parent'
+        # sc-ab6fa25a-3 bVYfLY dli-parent
     if len(selected_genres)>0:
         url+='&genres='+','.join(selected_genres)
     if len(min_date)>0:
@@ -80,7 +86,7 @@ def scrape(selected_type,selected_genres,min_date,max_date):
     main_divs=soup.find_all('div',class_=main_class)
     print('length is ',len(main_divs))
     # try:
-    for sop in main_divs:
+    for sop in main_divs[:5]:
         try:
             movie_link=sop.find('a',class_="ipc-title-link-wrapper")
             stars= float(sop.find('span',class_='ipc-rating-star ipc-rating-star--base ipc-rating-star--imdb ratingGroup--imdb-rating').text.split()[0])
@@ -120,6 +126,7 @@ def scrape(selected_type,selected_genres,min_date,max_date):
     df.sort_values('ordering',ascending=0,inplace=True)
     df['ordering']=round(df['ordering'],2)
     df.to_csv('new.csv')
+    st.write(f"**{selected_type}**")
     display(df.iloc[:5,:])
     # print(new_row,df)
     print(df)
