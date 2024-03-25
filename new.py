@@ -27,11 +27,21 @@ def main():
     st.title('Movie Recommendation System')
     # Sidebar for filters
     st.sidebar.title('Filters')
+    df=pd.read_csv('new1.csv')
+    if df.shape[0]>1:
+        if 'duration' in list(df.columns):
+            ctr=1
+            st.write('Prev scraped **Movies**')
+        else:
+            ctr=0
+            st.write('Prev scraped **Web series**')
+        display(df.iloc[:6,:])
 
     selected_type = st.sidebar.selectbox('Select Media Type', ['Movies', 'Web Series'], index=0)
     if selected_type =='Web Series':
         ctr=0
-
+    else:
+        ctr=1
 
     selected_genres = st.sidebar.multiselect('Select Genre', genres)
     
@@ -39,15 +49,10 @@ def main():
     min_date = [st.sidebar.date_input('Minimum Release Date')]
     max_date = [st.sidebar.date_input('Maximum Release Date')]
     search_button = st.sidebar.button('Search')
-    df=pd.read_csv('new.csv')
-    if 'duration' in list(df.columns):
-        ctr=1
-    else:
-        ctr=0
-    display(df.iloc[:6,:])
+    
 
     if search_button:
-        st.write('Scraping data from IMDb...')
+        st.write('Latest Scraped data from IMDb below...')
         new_data = scrape(selected_type,selected_genres,min_date,max_date)
         st.write('Scraping complete!')
         st.write(new_data)
@@ -56,7 +61,7 @@ def main():
 
 def scrape(selected_type,selected_genres,min_date,max_date):
     import pandas as pd
-    df=pd.DataFrame(columns=['movie_title','year','stars','duration','rating'])
+    df=pd.DataFrame(columns=['movie_title','year','stars','duration','rating','description'])
     # df.columns=['movie_title','year','stars','duration','rating']
     if selected_type=='Web Series':
         url='https://www.imdb.com/search/title/?title_type=tv_series'
@@ -64,7 +69,9 @@ def scrape(selected_type,selected_genres,min_date,max_date):
         ctr=0
     else:
         url=base_url
-        main_class='sc-d80c3c78-4 kXzHjH dli-parent'
+        main_class='sc-ab6fa25a-3 bVYfLY dli-parent'
+        # main_class='sc-d80c3c78-4 kXzHjH dli-parent'
+        # sc-ab6fa25a-3 bVYfLY dli-parent
     if len(selected_genres)>0:
         url+='&genres='+','.join(selected_genres)
     if len(min_date)>0:
@@ -80,7 +87,7 @@ def scrape(selected_type,selected_genres,min_date,max_date):
     main_divs=soup.find_all('div',class_=main_class)
     print('length is ',len(main_divs))
     # try:
-    for sop in main_divs:
+    for sop in main_divs[:5]:
         try:
             movie_link=sop.find('a',class_="ipc-title-link-wrapper")
             stars= float(sop.find('span',class_='ipc-rating-star ipc-rating-star--base ipc-rating-star--imdb ratingGroup--imdb-rating').text.split()[0])
@@ -94,6 +101,13 @@ def scrape(selected_type,selected_genres,min_date,max_date):
 
             #video link
             # video_url=bs(requests.get('https://www.imdb.com'+movie_link['href'],headers=headers).content,'html.parser').find('video',class_='jw-video jw-reset')['src']
+            #directors name
+            # director  =bs(requests.get('https://www.imdb.com'+movie_link['href'],headers=headers).content,'html.parser').find('a',class_='ipc-metadata-list-item__list-content-item ipc-metadata-list-item__list-content-item--link').text 
+            director = None if not movie_link else bs(requests.get('https://www.imdb.com'+movie_link['href'],headers=headers).content,'html.parser').find('a',class_='ipc-metadata-list-item__list-content-item ipc-metadata-list-item__list-content-item--link').text if bs(requests.get('https://www.imdb.com'+movie_link['href'],headers=headers).content,'html.parser').find('a',class_='ipc-metadata-list-item__list-content-item ipc-metadata-list-item__list-content-item--link').text  else None
+
+            #description
+            # description=bs(requests.get('https://www.imdb.com'+movie_link['href'],headers=headers).content,'html.parser').find('span',class_='sc-466bb6c-2 chnFO').text
+            description = None if not movie_link else bs(requests.get('https://www.imdb.com'+movie_link['href'],headers=headers).content,'html.parser').find('span',class_='sc-466bb6c-2 chnFO').text if bs(requests.get('https://www.imdb.com'+movie_link['href'],headers=headers).content,'html.parser').find('span',class_='sc-466bb6c-2 chnFO') else None
 
             # sentiment analysis
             latest_review_url='https://www.imdb.com/title/'+id+'/reviews?sort=submissionDate&dir=desc&ratingFilter=0'
@@ -105,21 +119,22 @@ def scrape(selected_type,selected_genres,min_date,max_date):
             avg_polarity=(((avg_polarity - -1) * 10) / 2) + 0
 
             if selected_type!='Web Series':
-                rows.append([movie_title,meta[0].strip(),stars,meta[1].strip(),meta[2].strip(),avg_polarity,image_url,get_trailer_url(movie_title)])
+                rows.append([movie_title,meta[0].strip(),stars,meta[1].strip(),meta[2].strip(),director.strip(),avg_polarity,image_url,get_trailer_url(movie_title),description])
             else:
-                rows.append([movie_title,meta[0].strip(),stars,meta[1].strip(),avg_polarity,image_url,get_trailer_url(movie_title)])
+                rows.append([movie_title,meta[0].strip(),stars,meta[1].strip(),director.strip(),avg_polarity,image_url,get_trailer_url(movie_title),description])
             print(rows)
         except:
             print(main_divs.index(sop))
             pass
     if selected_type!='Web Series':
-        df=pd.DataFrame(data =rows,columns=['movie_title','year','stars','duration','rating','avg_polarity','img_url','trailer_url'])
+        df=pd.DataFrame(data =rows,columns=['movie_title','year','stars','duration','rating','director','avg_polarity','img_url','trailer_url','description'])
     else:
-        df=pd.DataFrame(data =rows,columns=['movie_title','year','stars','rating','avg_polarity','img_url','trailer_url'])
+        df=pd.DataFrame(data =rows,columns=['movie_title','year','stars','rating','director','avg_polarity','img_url','trailer_url','description'])
     df['ordering']=0.8*df['stars']+0.2*df['avg_polarity']
     df.sort_values('ordering',ascending=0,inplace=True)
     df['ordering']=round(df['ordering'],2)
-    df.to_csv('new.csv')
+    df.to_csv('new1.csv')
+    st.write(f"**{selected_type}**")
     display(df.iloc[:5,:])
     # print(new_row,df)
     print(df)
@@ -160,8 +175,8 @@ def display(df):
                     <div style="{box_style}">
                         <img src="{row['img_url']}" alt="{row['movie_title']}" style="{image_style}">
                         <div>
-                            <h3 style="font-weight: bold;">{row['movie_title']} ({row['year']})</h3>
-                            <p><strong>Stars:</strong> {row['stars']} | <strong>Duration:</strong> {row['duration']} | <strong>Rating:</strong> {row['rating']}</p>
+                            <h3 style="font-weight: bold;" title="{row['description']}">{row['movie_title']} ({row['year']})</h3>
+                            <p><strong>  Director </strong>: {row['director']} | <strong>Stars:</strong> {row['stars']} | <strong>Duration:</strong> {row['duration']} | <strong>Rating:</strong> {row['rating']}</p>
                             <iframe width="750" height="270" src="{row['trailer_url']}" frameborder="0" allowfullscreen style="{video_style}"></iframe>
                         </div>
                     </div>
@@ -171,8 +186,8 @@ def display(df):
                     <div style="{box_style}">
                         <img src="{row['img_url']}" alt="{row['movie_title']}" style="{image_style}">
                         <div>
-                            <h3 style="font-weight: bold;">{row['movie_title']} ({row['year']})</h3>
-                            <p><strong>Stars:</strong> {row['stars']} | <strong>Rating:</strong> {row['rating']}</p>
+                            <h3 style="font-weight: bold;" title="{row['description']}">{row['movie_title']} ({row['year']})</h3>
+                            <p><strong>  Director </strong>: {row['director']} | <strong>Stars:</strong> {row['stars']} | <strong>Rating:</strong> {row['rating']} </p>
                             <iframe width="750" height="270" src="{row['trailer_url']}" frameborder="0" allowfullscreen style="{video_style}"></iframe>
                         </div>
                     </div>
